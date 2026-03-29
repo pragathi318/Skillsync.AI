@@ -9,8 +9,8 @@ const openai = new OpenAI({
     }
 });
 
-// Python backend URL (local server with Beyond Presence)
-const WEBHOOK_URL = 'http://localhost:5000/webhook';
+// Python backend URL (Render deployment)
+const WEBHOOK_URL = process.env.BACKEND_URL || 'https://skillsync-ai-br10.onrender.com/webhook';
 
 // System prompt to guide the AI
 const SYSTEM_PROMPT = `
