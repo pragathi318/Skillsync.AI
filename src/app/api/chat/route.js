@@ -9,7 +9,8 @@ const openai = new OpenAI({
     }
 });
 
-const WEBHOOK_URL = 'https://n8n.srv1136844.hstgr.cloud/webhook/3b3fb564-a5c5-4041-9840-30492acfc959';
+// Python backend URL (local server with Beyond Presence)
+const WEBHOOK_URL = 'http://localhost:5000/webhook';
 
 // System prompt to guide the AI
 const SYSTEM_PROMPT = `
@@ -96,43 +97,36 @@ export async function POST(req) {
                         cleanResponse = aiResponse.replace(jsonStr, '').trim();
                     }
 
-                    // Call Webhook
-                    console.log("Sending to Webhook (GET):", WEBHOOK_URL);
+                    // Call Python Backend
+                    console.log("Calling Python backend:", WEBHOOK_URL);
 
-                    // Create Query Params for GET request (matching user's n8n config)
-                    const params = new URLSearchParams();
-                    params.append('name', jsonData.collected_data.name);
-                    params.append('email', jsonData.collected_data.email);
-                    params.append('job', jsonData.collected_data.job);
+                    try {
+                        const webhookRes = await fetch(WEBHOOK_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: jsonData.collected_data.name,
+                                email: jsonData.collected_data.email,
+                                job: jsonData.collected_data.job,
+                                resume_link: jsonData.collected_data.resume_link || ""
+                            })
+                        });
 
-                    // Pass the LINK
-                    params.append('resume_link', jsonData.collected_data.resume_link || "");
+                        console.log("Backend Status:", webhookRes.status);
 
-                    const webhookUrlWithParams = `${WEBHOOK_URL}?${params.toString()}`;
+                        if (webhookRes.ok) {
+                            const backendData = await webhookRes.json();
+                            console.log("Backend Response:", backendData);
 
-                    const webhookRes = await fetch(webhookUrlWithParams, {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-
-                    console.log("Webhook Status:", webhookRes.status);
-
-                    if (webhookRes.ok) {
-                        const webhookData = await webhookRes.json();
-                        console.log("Webhook Response Body:", webhookData);
-
-                        // Extract link
-                        let redirectUrl = webhookData.url || webhookData.link || webhookData.redirect;
-                        if (!redirectUrl && typeof webhookData === 'string' && webhookData.startsWith('http')) {
-                            redirectUrl = webhookData;
+                            return new Response(JSON.stringify({
+                                content: cleanResponse,
+                                redirectUrl: backendData.url
+                            }), { status: 200, headers });
+                        } else {
+                            console.error("Backend failed:", webhookRes.status);
                         }
-
-                        return new Response(JSON.stringify({
-                            content: cleanResponse,
-                            redirectUrl: redirectUrl
-                        }), { status: 200, headers });
-                    } else {
-                        console.error("Webhook failed with status:", webhookRes.status);
+                    } catch (backendError) {
+                        console.error("Failed to call backend:", backendError);
                     }
                 }
             } catch (e) {
