@@ -92,3 +92,4 @@ The easiest way to deploy this Next.js app is to use the [Vercel Platform](https
 3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4.  Push to the branch (`git push origin feature/AmazingFeature`)
 5.  Open a Pull Request
+
