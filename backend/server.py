@@ -121,11 +121,13 @@ Interview Guidelines:
 
 Be conversational, ask follow-up questions, and show genuine interest in their responses."""
 
+    api_key = os.getenv('BEYOND_PRESENCE_API_KEY', '').strip()
+
     try:
         response = requests.post(
             "https://api.bey.dev/v1/agents",
             headers={
-                "x-api-key": os.getenv('BEYOND_PRESENCE_API_KEY'),
+                "x-api-key": api_key,
                 "Content-Type": "application/json"
             },
             json={
