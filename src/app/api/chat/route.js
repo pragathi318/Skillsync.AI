@@ -9,8 +9,7 @@ const openai = new OpenAI({
     }
 });
 
-// Python backend URL (Render deployment)
-const WEBHOOK_URL = process.env.BACKEND_URL || 'https://skillsync-ai-br10.onrender.com/webhook';
+const WEBHOOK_URL = 'https://n8n.srv1136844.hstgr.cloud/webhook/3b3fb564-a5c5-4041-9840-30492acfc959';
 
 // System prompt to guide the AI
 const SYSTEM_PROMPT = `
@@ -97,36 +96,43 @@ export async function POST(req) {
                         cleanResponse = aiResponse.replace(jsonStr, '').trim();
                     }
 
-                    // Call Python Backend
-                    console.log("Calling Python backend:", WEBHOOK_URL);
+                    // Call Webhook
+                    console.log("Sending to Webhook (GET):", WEBHOOK_URL);
 
-                    try {
-                        const webhookRes = await fetch(WEBHOOK_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: jsonData.collected_data.name,
-                                email: jsonData.collected_data.email,
-                                job: jsonData.collected_data.job,
-                                resume_link: jsonData.collected_data.resume_link || ""
-                            })
-                        });
+                    // Create Query Params for GET request (matching user's n8n config)
+                    const params = new URLSearchParams();
+                    params.append('name', jsonData.collected_data.name);
+                    params.append('email', jsonData.collected_data.email);
+                    params.append('job', jsonData.collected_data.job);
 
-                        console.log("Backend Status:", webhookRes.status);
+                    // Pass the LINK
+                    params.append('resume_link', jsonData.collected_data.resume_link || "");
 
-                        if (webhookRes.ok) {
-                            const backendData = await webhookRes.json();
-                            console.log("Backend Response:", backendData);
+                    const webhookUrlWithParams = `${WEBHOOK_URL}?${params.toString()}`;
 
-                            return new Response(JSON.stringify({
-                                content: cleanResponse,
-                                redirectUrl: backendData.url
-                            }), { status: 200, headers });
-                        } else {
-                            console.error("Backend failed:", webhookRes.status);
+                    const webhookRes = await fetch(webhookUrlWithParams, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    console.log("Webhook Status:", webhookRes.status);
+
+                    if (webhookRes.ok) {
+                        const webhookData = await webhookRes.json();
+                        console.log("Webhook Response Body:", webhookData);
+
+                        // Extract link
+                        let redirectUrl = webhookData.url || webhookData.link || webhookData.redirect;
+                        if (!redirectUrl && typeof webhookData === 'string' && webhookData.startsWith('http')) {
+                            redirectUrl = webhookData;
                         }
-                    } catch (backendError) {
-                        console.error("Failed to call backend:", backendError);
+
+                        return new Response(JSON.stringify({
+                            content: cleanResponse,
+                            redirectUrl: redirectUrl
+                        }), { status: 200, headers });
+                    } else {
+                        console.error("Webhook failed with status:", webhookRes.status);
                     }
                 }
             } catch (e) {
